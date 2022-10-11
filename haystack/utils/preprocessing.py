@@ -89,14 +89,17 @@ def convert_files_to_docs(
             logger.info("Converting {}".format(path))
             
             # If TikaConverter is used, pass xmlContent flag to converter
-            if suffix in xmlContent:
-                xml = xmlContent[suffix]
-            else:
-                xml = None
-            # PDFToTextConverter, TextConverter, DocxToTextConverter and TikaConverter return a list containing a single Document
-            document = suffix2converter[suffix].convert(
-                file_path=path, meta=None, encoding=encoding, id_hash_keys=id_hash_keys, xmlContent=xml
+            
+            if use_tika and suffix in xmlContent:                
+                document = suffix2converter[suffix].convert(
+                file_path=path, meta=None, encoding=encoding, id_hash_keys=id_hash_keys, xmlContent=xmlContent[suffix]
             )[0]
+            else:
+                
+            # PDFToTextConverter, TextConverter, DocxToTextConverter and TikaConverter return a list containing a single Document
+                document = suffix2converter[suffix].convert(
+                    file_path=path, meta=None, encoding=encoding, id_hash_keys=id_hash_keys
+                )[0]
             #add meta data with path name to document
             document.meta["name"] = path.name
 

@@ -7,13 +7,15 @@ import logging
 try:
     from ftlangdetect import detect
 except ImportError as ie:
-    logging.debug("Failed to import 'langdetect'.")
+    logging.debug("Failed to import 'ftlangdetect'.")
 
 DEFAULT_LANGUAGES = ["en", "de", "es", "cs", "nl"]
 
 
 class DocumentLanguageClassifier(BaseComponent):
-
+    """ 
+    DocumentLanguageClassifier is a node that sends out Documents on a different output edge depending on the language the document is written in.
+    """
     outgoing_edges = len(DEFAULT_LANGUAGES)
 
     def __init__(self, languages: List[str] = DEFAULT_LANGUAGES):
@@ -41,7 +43,9 @@ class DocumentLanguageClassifier(BaseComponent):
         Return the code of the language of the document.
         """
         try:
-            return detect(document.content, low_memory=False)
+            # NOTE: detect() returns a dict with {"lang":xyz, "score":0.123}. Do we want to return the score as well? 
+            lang = detect(document.content, low_memory=False) 
+            return lang["lang"]
         except Exception:
             logging.warning(
                 f"Langdetect could not understand the language of doc with id: {document.id}. "
@@ -53,7 +57,7 @@ class DocumentLanguageClassifier(BaseComponent):
         """
         Checks whether all the documents passed are written in the same language and returns its code.
         """
-        languages = {self._detect_language(document) for document in documents}
+        languages = [self._detect_language(document) for document in documents]
         if len(languages) > 1:
             raise ValueError(
                 f"Documents of multiple languages ({languages}) are not allowed together. "

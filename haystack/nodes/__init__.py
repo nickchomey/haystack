@@ -43,6 +43,7 @@ from haystack.nodes.retriever import (
 )
 from haystack.nodes.summarizer import BaseSummarizer, TransformersSummarizer
 from haystack.nodes.translator import BaseTranslator, TransformersTranslator
+#from haystack.nodes.language_classifier.language_classifier import DocumentLanguageClassifier
 
 Crawler = safe_import("haystack.nodes.connector.crawler", "Crawler", "crawler")  # Has optional dependencies
 AnswerToSpeech = safe_import(
