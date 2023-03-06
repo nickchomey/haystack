@@ -1,5 +1,3 @@
-# pylint: disable=missing-timeout
-
 import json
 from mimetypes import guess_type
 from pathlib import Path
@@ -10,17 +8,17 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
+import logging
 import os
 import time
-import logging
 from enum import Enum
 
-import yaml
 import pandas as pd
 import requests
-from tqdm import tqdm
+import yaml
+from tqdm.auto import tqdm
 
-from haystack.schema import Label, Document, Answer, EvaluationResult
+from haystack.schema import Answer, Document, EvaluationResult, FilterType, Label
 
 DEFAULT_API_ENDPOINT = "https://api.cloud.deepset.ai/api/v1"
 
@@ -89,7 +87,7 @@ class DeepsetCloudError(Exception):
 
 
 class DeepsetCloudClient:
-    def __init__(self, api_key: str = None, api_endpoint: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, api_endpoint: Optional[str] = None):
         """
         A client to communicate with deepset Cloud.
 
@@ -110,8 +108,8 @@ class DeepsetCloudClient:
     def get(
         self,
         url: str,
-        query_params: dict = None,
-        headers: dict = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
         raise_on_error: bool = True,
     ):
@@ -127,8 +125,8 @@ class DeepsetCloudClient:
     def get_with_auto_paging(
         self,
         url: str,
-        query_params: dict = None,
-        headers: dict = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
         raise_on_error: bool = True,
         auto_paging_page_size: Optional[int] = None,
@@ -146,14 +144,16 @@ class DeepsetCloudClient:
     def post(
         self,
         url: str,
-        json: dict = {},
-        data: Any = None,
-        query_params: dict = None,
-        headers: dict = None,
+        json: Optional[Dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
-        files: Any = None,
+        files: Optional[Any] = None,
         raise_on_error: bool = True,
     ):
+        if json is None:
+            json = {}
         return self._execute_request(
             method="POST",
             url=url,
@@ -169,14 +169,16 @@ class DeepsetCloudClient:
     def post_with_auto_paging(
         self,
         url: str,
-        json: dict = {},
-        data: Any = None,
-        query_params: dict = None,
-        headers: dict = None,
+        json: Optional[Dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
         raise_on_error: bool = True,
         auto_paging_page_size: Optional[int] = None,
     ):
+        if json is None:
+            json = {}
         return self._execute_auto_paging_request(
             method="POST",
             url=url,
@@ -192,11 +194,11 @@ class DeepsetCloudClient:
     def put(
         self,
         url: str,
-        json: dict = None,
-        data: Any = None,
-        query_params: dict = None,
+        json: Optional[dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
         stream: bool = False,
-        headers: dict = None,
+        headers: Optional[dict] = None,
         raise_on_error: bool = True,
     ):
         return self._execute_request(
@@ -213,14 +215,16 @@ class DeepsetCloudClient:
     def put_with_auto_paging(
         self,
         url: str,
-        json: dict = {},
-        data: Any = None,
-        query_params: dict = None,
-        headers: dict = None,
+        json: Optional[Dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
         raise_on_error: bool = True,
         auto_paging_page_size: Optional[int] = None,
     ):
+        if json is None:
+            json = {}
         return self._execute_auto_paging_request(
             method="PUT",
             url=url,
@@ -236,8 +240,8 @@ class DeepsetCloudClient:
     def delete(
         self,
         url: str,
-        query_params: dict = None,
-        headers: dict = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
         raise_on_error: bool = True,
     ):
@@ -253,11 +257,11 @@ class DeepsetCloudClient:
     def patch(
         self,
         url: str,
-        json: dict = None,
-        data: Any = None,
-        query_params: dict = None,
+        json: Optional[dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
         stream: bool = False,
-        headers: dict = None,
+        headers: Optional[dict] = None,
         raise_on_error: bool = True,
     ):
         return self._execute_request(
@@ -275,10 +279,10 @@ class DeepsetCloudClient:
         self,
         method: Literal["GET", "POST", "PUT", "HEAD", "DELETE"],
         url: str,
-        json: dict = None,
-        data: Any = None,
-        query_params: dict = None,
-        headers: dict = None,
+        json: Optional[dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
         raise_on_error: bool = True,
         auto_paging_page_size: Optional[int] = None,
@@ -308,13 +312,14 @@ class DeepsetCloudClient:
         self,
         method: Literal["GET", "POST", "PUT", "HEAD", "DELETE", "PATCH"],
         url: str,
-        json: dict = None,
-        data: Any = None,
-        query_params: dict = None,
-        headers: dict = None,
+        json: Optional[dict] = None,
+        data: Optional[Any] = None,
+        query_params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         stream: bool = False,
-        files: Any = None,
+        files: Optional[Any] = None,
         raise_on_error: bool = True,
+        timeout: Union[float, Tuple[float, float]] = 10.0,
     ):
         if json is not None:
             json = self._remove_null_values(json)
@@ -328,6 +333,7 @@ class DeepsetCloudClient:
             auth=BearerAuth(self.api_key),
             stream=stream,
             files=files,
+            timeout=timeout,
         )
         if raise_on_error and response.status_code > 299:
             raise DeepsetCloudError(
@@ -335,7 +341,7 @@ class DeepsetCloudClient:
             )
         return response
 
-    def build_workspace_url(self, workspace: str = None):
+    def build_workspace_url(self, workspace: Optional[str] = None):
         api_endpoint = f"{self.api_endpoint}".rstrip("/")
         url = f"{api_endpoint}/workspaces/{workspace}"
         return url
@@ -358,7 +364,7 @@ class IndexClient:
         self.workspace = workspace
         self.index = index
 
-    def info(self, workspace: Optional[str] = None, index: Optional[str] = None, headers: dict = None):
+    def info(self, workspace: Optional[str] = None, index: Optional[str] = None, headers: Optional[dict] = None):
         index_url = self._build_index_url(workspace=workspace, index=index)
         try:
             response = self.client.get(url=index_url, headers=headers)
@@ -369,7 +375,7 @@ class IndexClient:
     def query(
         self,
         query: Optional[str] = None,
-        filters: Optional[Dict[str, Union[Dict, List, str, int, float, bool]]] = None,
+        filters: Optional[FilterType] = None,
         top_k: int = 10,
         custom_query: Optional[str] = None,
         query_emb: Optional[List[float]] = None,
@@ -378,7 +384,8 @@ class IndexClient:
         index: Optional[str] = None,
         all_terms_must_match: Optional[bool] = None,
         scale_score: bool = True,
-        headers: dict = None,
+        headers: Optional[dict] = None,
+        use_prefiltering: Optional[bool] = None,
     ) -> List[dict]:
         index_url = self._build_index_url(workspace=workspace, index=index)
         query_url = f"{index_url}/documents-query"
@@ -391,6 +398,7 @@ class IndexClient:
             "return_embedding": return_embedding,
             "all_terms_must_match": all_terms_must_match,
             "scale_score": scale_score,
+            "use_prefiltering": use_prefiltering,
         }
         response = self.client.post(url=query_url, json=request, headers=headers)
         return response.json()
@@ -398,10 +406,10 @@ class IndexClient:
     def stream_documents(
         self,
         return_embedding: Optional[bool] = False,
-        filters: Optional[dict] = None,
+        filters: Optional[FilterType] = None,
         workspace: Optional[str] = None,
         index: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
     ):
         index_url = self._build_index_url(workspace=workspace, index=index)
         query_url = f"{index_url}/documents-stream"
@@ -409,7 +417,9 @@ class IndexClient:
         response = self.client.post(url=query_url, json=request, headers=headers, stream=True)
         return response.iter_lines()
 
-    def get_document(self, id: str, workspace: Optional[str] = None, index: Optional[str] = None, headers: dict = None):
+    def get_document(
+        self, id: str, workspace: Optional[str] = None, index: Optional[str] = None, headers: Optional[dict] = None
+    ):
         index_url = self._build_index_url(workspace=workspace, index=index)
         document_url = f"{index_url}/documents/{id}"
         response = self.client.get(url=document_url, headers=headers, raise_on_error=False)
@@ -418,17 +428,21 @@ class IndexClient:
             doc = response.json()
         else:
             logger.warning(
-                f"Document {id} could not be fetched from deepset Cloud: HTTP {response.status_code} - {response.reason}\n{response.content.decode()}"
+                "Document %s could not be fetched from deepset Cloud: HTTP %s - %s\n%s",
+                id,
+                response.status_code,
+                response.reason,
+                response.content.decode(),
             )
         return doc
 
     def count_documents(
         self,
-        filters: Optional[dict] = None,
+        filters: Optional[FilterType] = None,
         only_documents_without_embedding: Optional[bool] = False,
         workspace: Optional[str] = None,
         index: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
     ) -> dict:
         index_url = self._build_index_url(workspace=workspace, index=index)
         count_url = f"{index_url}/documents-count"
@@ -462,7 +476,10 @@ class PipelineClient:
         self.pipeline_config_name = pipeline_config_name
 
     def get_pipeline_config(
-        self, workspace: Optional[str] = None, pipeline_config_name: Optional[str] = None, headers: dict = None
+        self,
+        workspace: Optional[str] = None,
+        pipeline_config_name: Optional[str] = None,
+        headers: Optional[dict] = None,
     ) -> dict:
         """
         Gets the config from a pipeline on deepset Cloud.
@@ -477,7 +494,10 @@ class PipelineClient:
         return response
 
     def get_pipeline_config_info(
-        self, workspace: Optional[str] = None, pipeline_config_name: Optional[str] = None, headers: dict = None
+        self,
+        workspace: Optional[str] = None,
+        pipeline_config_name: Optional[str] = None,
+        headers: Optional[dict] = None,
     ) -> Optional[dict]:
         """
         Gets information about a pipeline on deepset Cloud.
@@ -497,7 +517,7 @@ class PipelineClient:
                 f"GET {pipeline_url} failed: HTTP {response.status_code} - {response.reason}\n{response.content.decode()}"
             )
 
-    def list_pipeline_configs(self, workspace: Optional[str] = None, headers: dict = None) -> Generator:
+    def list_pipeline_configs(self, workspace: Optional[str] = None, headers: Optional[dict] = None) -> Generator:
         """
         Lists all pipelines available on deepset Cloud.
 
@@ -511,15 +531,19 @@ class PipelineClient:
                         "..." -> additional pipeline meta information
                         }
             example:
-                    [{'name': 'my_super_nice_pipeline_config',
-                        'pipeline_id': '2184e0c1-c6ec-40a1-9b28-5d2768e5efa2',
-                        'status': 'DEPLOYED',
-                        'created_at': '2022-02-01T09:57:03.803991+00:00',
-                        'deleted': False,
-                        'is_default': False,
-                        'indexing': {'status': 'IN_PROGRESS',
-                        'pending_file_count': 3,
-                        'total_file_count': 31}}]
+
+            ```python
+            [{'name': 'my_super_nice_pipeline_config',
+                'pipeline_id': '2184e0c1-c6ec-40a1-9b28-5d2768e5efa2',
+                'status': 'DEPLOYED',
+                'created_at': '2022-02-01T09:57:03.803991+00:00',
+                'deleted': False,
+                'is_default': False,
+                'indexing': {'status': 'IN_PROGRESS',
+                'pending_file_count': 3,
+                'total_file_count': 31}}]
+            ```
+
         """
         workspace_url = self._build_workspace_url(workspace)
         pipelines_url = f"{workspace_url}/pipelines"
@@ -531,7 +555,7 @@ class PipelineClient:
         config: dict,
         pipeline_config_name: Optional[str] = None,
         workspace: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
     ):
         """
         Saves a pipeline config to deepset Cloud.
@@ -553,7 +577,7 @@ class PipelineClient:
         config: dict,
         pipeline_config_name: Optional[str] = None,
         workspace: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
     ):
         """
         Updates a pipeline config on deepset Cloud.
@@ -573,8 +597,8 @@ class PipelineClient:
     def deploy(
         self,
         pipeline_config_name: Optional[str] = None,
-        workspace: str = None,
-        headers: dict = None,
+        workspace: Optional[str] = None,
+        headers: Optional[dict] = None,
         timeout: int = 60,
         show_curl_message: bool = True,
     ):
@@ -613,7 +637,9 @@ class PipelineClient:
             else:
                 logger.info("Pipeline config '%s' is already deployed.", pipeline_config_name)
             logger.info(
-                f"Search endpoint for pipeline config '{pipeline_config_name}' is up and running for you under {pipeline_url}"
+                "Search endpoint for pipeline config '%s' is up and running for you under %s",
+                pipeline_config_name,
+                pipeline_url,
             )
             if show_curl_message:
                 curl_cmd = (
@@ -648,7 +674,11 @@ class PipelineClient:
             )
 
     def undeploy(
-        self, pipeline_config_name: Optional[str] = None, workspace: str = None, headers: dict = None, timeout: int = 60
+        self,
+        pipeline_config_name: Optional[str] = None,
+        workspace: Optional[str] = None,
+        headers: Optional[dict] = None,
+        timeout: int = 60,
     ):
         """
         Undeploys the pipelines of a pipeline config on deepset Cloud.
@@ -692,8 +722,8 @@ class PipelineClient:
         target_state: Literal[PipelineStatus.DEPLOYED, PipelineStatus.UNDEPLOYED],
         timeout: int = 60,
         pipeline_config_name: Optional[str] = None,
-        workspace: str = None,
-        headers: dict = None,
+        workspace: Optional[str] = None,
+        headers: Optional[dict] = None,
     ) -> Tuple[PipelineStatus, bool]:
         """
         Transitions the pipeline config state to desired target_state on deepset Cloud.
@@ -760,7 +790,10 @@ class PipelineClient:
         return status, True
 
     def _deploy(
-        self, pipeline_config_name: Optional[str] = None, workspace: Optional[str] = None, headers: dict = None
+        self,
+        pipeline_config_name: Optional[str] = None,
+        workspace: Optional[str] = None,
+        headers: Optional[dict] = None,
     ) -> dict:
         pipeline_url = self._build_pipeline_url(workspace=workspace, pipeline_config_name=pipeline_config_name)
         deploy_url = f"{pipeline_url}/deploy"
@@ -768,7 +801,10 @@ class PipelineClient:
         return response
 
     def _undeploy(
-        self, pipeline_config_name: Optional[str] = None, workspace: Optional[str] = None, headers: dict = None
+        self,
+        pipeline_config_name: Optional[str] = None,
+        workspace: Optional[str] = None,
+        headers: Optional[dict] = None,
     ) -> dict:
         pipeline_url = self._build_pipeline_url(workspace=workspace, pipeline_config_name=pipeline_config_name)
         undeploy_url = f"{pipeline_url}/undeploy"
@@ -903,7 +939,9 @@ class EvaluationSetClient:
             with open(file_path, "rb") as file:
                 self.client.post(url=target_url, files={"file": (file_path.name, file, mime_type)})
             logger.info(
-                f"Successfully uploaded evaluation set file {file_path}. You can access it now under evaluation set '{file_path.name}'."
+                "Successfully uploaded evaluation set file %s. You can access it now under evaluation set '%s'.",
+                file_path,
+                file_path.name,
             )
         except DeepsetCloudError as e:
             logger.error("Error uploading evaluation set file %s: %s", file_path, e.args)
@@ -962,7 +1000,7 @@ class FileClient:
         file_paths: List[Path],
         metas: Optional[List[Dict]] = None,
         workspace: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
     ):
         """
         Uploads files to the deepset Cloud workspace.
@@ -991,12 +1029,12 @@ class FileClient:
                     )
                 file_id = response_file_upload.json().get("file_id")
                 file_ids.append(file_id)
-            except Exception as e:
+            except Exception:
                 logger.exception("Error uploading file %s", file_path)
 
         logger.info("Successfully uploaded %s files.", len(file_ids))
 
-    def delete_file(self, file_id: str, workspace: Optional[str] = None, headers: dict = None):
+    def delete_file(self, file_id: str, workspace: Optional[str] = None, headers: Optional[dict] = None):
         """
         Delete a file from the deepset Cloud workspace.
 
@@ -1009,7 +1047,7 @@ class FileClient:
         file_url = f"{workspace_url}/files/{file_id}"
         self.client.delete(url=file_url, headers=headers)
 
-    def delete_all_files(self, workspace: Optional[str] = None, headers: dict = None):
+    def delete_all_files(self, workspace: Optional[str] = None, headers: Optional[dict] = None):
         """
         Delete all files from a deepset Cloud workspace.
 
@@ -1027,7 +1065,7 @@ class FileClient:
         meta_key: Optional[str] = None,
         meta_value: Optional[str] = None,
         workspace: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
     ) -> Generator:
         """
         List all files in the given deepset Cloud workspace.
@@ -1068,7 +1106,7 @@ class EvaluationRunClient:
         eval_run_name: str,
         workspace: Optional[str] = None,
         pipeline_config_name: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
         evaluation_set: Optional[str] = None,
         eval_mode: Literal["integrated", "isolated"] = "integrated",
         debug: bool = False,
@@ -1106,7 +1144,9 @@ class EvaluationRunClient:
         )
         return response.json()["data"]
 
-    def get_eval_run(self, eval_run_name: str, workspace: Optional[str] = None, headers: dict = None) -> Dict[str, Any]:
+    def get_eval_run(
+        self, eval_run_name: str, workspace: Optional[str] = None, headers: Optional[dict] = None
+    ) -> Dict[str, Any]:
         """
         Gets the evaluation run and shows its parameters and metrics.
 
@@ -1120,7 +1160,7 @@ class EvaluationRunClient:
         response = self.client.get(eval_run_url, headers=headers)
         return response.json()
 
-    def get_eval_runs(self, workspace: Optional[str] = None, headers: dict = None) -> List[Dict[str, Any]]:
+    def get_eval_runs(self, workspace: Optional[str] = None, headers: Optional[dict] = None) -> List[Dict[str, Any]]:
         """
         Gets all evaluation runs and shows its parameters and metrics.
 
@@ -1133,7 +1173,7 @@ class EvaluationRunClient:
         response = self.client.get_with_auto_paging(eval_run_url, headers=headers)
         return [eval_run for eval_run in response]
 
-    def delete_eval_run(self, eval_run_name: str, workspace: Optional[str] = None, headers: dict = None):
+    def delete_eval_run(self, eval_run_name: str, workspace: Optional[str] = None, headers: Optional[dict] = None):
         """
         Deletes an evaluation run.
 
@@ -1148,7 +1188,7 @@ class EvaluationRunClient:
         if response.status_code == 204:
             logger.info("Evaluation run '%s' deleted.", eval_run_name)
 
-    def start_eval_run(self, eval_run_name: str, workspace: Optional[str] = None, headers: dict = None):
+    def start_eval_run(self, eval_run_name: str, workspace: Optional[str] = None, headers: Optional[dict] = None):
         """
         Starts an evaluation run.
 
@@ -1168,7 +1208,7 @@ class EvaluationRunClient:
         eval_run_name: str,
         workspace: Optional[str] = None,
         pipeline_config_name: Optional[str] = None,
-        headers: dict = None,
+        headers: Optional[dict] = None,
         evaluation_set: Optional[str] = None,
         eval_mode: Literal["integrated", "isolated", None] = None,
         debug: Optional[bool] = None,
@@ -1209,7 +1249,7 @@ class EvaluationRunClient:
         return response.json()["data"]
 
     def get_eval_run_results(
-        self, eval_run_name: str, workspace: Optional[str] = None, headers: dict = None
+        self, eval_run_name: str, workspace: Optional[str] = None, headers: Optional[dict] = None
     ) -> Dict[str, Any]:
         """
         Collects and returns the predictions of an evaluation run.
@@ -1398,15 +1438,19 @@ class DeepsetCloudExperiments:
                         "..." -> additional pipeline meta information
                         }
             example:
-                    [{'name': 'my_super_nice_pipeline_config',
-                        'pipeline_id': '2184e0c1-c6ec-40a1-9b28-5d2768e5efa2',
-                        'status': 'DEPLOYED',
-                        'created_at': '2022-02-01T09:57:03.803991+00:00',
-                        'deleted': False,
-                        'is_default': False,
-                        'indexing': {'status': 'IN_PROGRESS',
-                        'pending_file_count': 3,
-                        'total_file_count': 31}}]
+
+            ```python
+            [{'name': 'my_super_nice_pipeline_config',
+                'pipeline_id': '2184e0c1-c6ec-40a1-9b28-5d2768e5efa2',
+                'status': 'DEPLOYED',
+                'created_at': '2022-02-01T09:57:03.803991+00:00',
+                'deleted': False,
+                'is_default': False,
+                'indexing': {'status': 'IN_PROGRESS',
+                'pending_file_count': 3,
+                'total_file_count': 31}}]
+            ```
+
         """
         client = DeepsetCloud.get_pipeline_client(api_key=api_key, api_endpoint=api_endpoint, workspace=workspace)
         pipeline_config_infos = list(client.list_pipeline_configs())
@@ -1433,11 +1477,14 @@ class DeepsetCloudExperiments:
                         "..." -> additional pipeline meta information
                         }
             example:
-                    [{'evaluation_set_id': 'fb084729-57ad-4b57-9f78-ec0eb4d29c9f',
-                        'name': 'my-question-answering-evaluation-set',
-                        'created_at': '2022-05-06T09:54:14.830529+00:00',
-                        'matched_labels': 234,
-                        'total_labels': 234}]
+
+            ```python
+            [{'evaluation_set_id': 'fb084729-57ad-4b57-9f78-ec0eb4d29c9f',
+                'name': 'my-question-answering-evaluation-set',
+                'created_at': '2022-05-06T09:54:14.830529+00:00',
+                'matched_labels': 234,
+                'total_labels': 234}]
+            ```
         """
         client = DeepsetCloud.get_evaluation_set_client(api_key=api_key, api_endpoint=api_endpoint, workspace=workspace)
         return client.get_evaluation_sets()
@@ -1459,35 +1506,38 @@ class DeepsetCloudExperiments:
         Returns:
             list of dictionaries: List[dict]
             example:
-                    [{'eval_run_name': 'my-eval-run-1',
-                        'parameters': {
-                            'pipeline_name': 'my-pipeline-1_696bc5d0-ee65-46c1-a308-059507bc353b',
-                            'evaluation_set_name': 'my-eval-set-name',
-                            'debug': False,
-                            'eval_mode': 0
-                        },
-                        'metrics': {
-                            'isolated_exact_match': 0.45,
-                            'isolated_f1': 0.89,
-                            'isolated_sas': 0.91,
-                            'integrated_exact_match': 0.39,
-                            'integrated_f1': 0.76,
-                            'integrated_sas': 0.78,
-                            'mean_reciprocal_rank': 0.77,
-                            'mean_average_precision': 0.78,
-                            'recall_single_hit': 0.91,
-                            'recall_multi_hit': 0.91,
-                            'normal_discounted_cummulative_gain': 0.83,
-                            'precision': 0.52
-                        },
-                        'logs': {},
-                        'status': 1,
-                        'eval_mode': 0,
-                        'eval_run_labels': [],
-                        'created_at': '2022-05-24T12:13:16.445857+00:00',
-                        'comment': 'This is a comment about thiseval run',
-                        'tags': ['experiment-1', 'experiment-2', 'experiment-3']
-                        }]
+
+            ```python
+            [{'eval_run_name': 'my-eval-run-1',
+                'parameters': {
+                    'pipeline_name': 'my-pipeline-1_696bc5d0-ee65-46c1-a308-059507bc353b',
+                    'evaluation_set_name': 'my-eval-set-name',
+                    'debug': False,
+                    'eval_mode': 0
+                },
+                'metrics': {
+                    'isolated_exact_match': 0.45,
+                    'isolated_f1': 0.89,
+                    'isolated_sas': 0.91,
+                    'integrated_exact_match': 0.39,
+                    'integrated_f1': 0.76,
+                    'integrated_sas': 0.78,
+                    'mean_reciprocal_rank': 0.77,
+                    'mean_average_precision': 0.78,
+                    'recall_single_hit': 0.91,
+                    'recall_multi_hit': 0.91,
+                    'normal_discounted_cummulative_gain': 0.83,
+                    'precision': 0.52
+                },
+                'logs': {},
+                'status': 1,
+                'eval_mode': 0,
+                'eval_run_labels': [],
+                'created_at': '2022-05-24T12:13:16.445857+00:00',
+                'comment': 'This is a comment about thiseval run',
+                'tags': ['experiment-1', 'experiment-2', 'experiment-3']
+                }]
+            ```
         """
         client = DeepsetCloud.get_eval_run_client(api_key=api_key, api_endpoint=api_endpoint, workspace=workspace)
         return client.get_eval_runs()

@@ -1,26 +1,27 @@
 import logging
 from abc import ABC
 from copy import deepcopy
-from pathlib import Path
 from functools import wraps
-from typing import List, Optional, Dict, Any, Union
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
-from haystack.schema import Document, EvaluationResult, MultiLabel
+from haystack.document_stores.base import BaseDocumentStore, FilterType
 from haystack.nodes.answer_generator.base import BaseGenerator
 from haystack.nodes.other.docs2answers import Docs2Answers
+from haystack.nodes.other.document_merger import DocumentMerger
+from haystack.nodes.question_generator.question_generator import QuestionGenerator
 from haystack.nodes.reader.base import BaseReader
 from haystack.nodes.retriever.base import BaseRetriever
 from haystack.nodes.summarizer.base import BaseSummarizer
 from haystack.nodes.translator.base import BaseTranslator
-from haystack.nodes.question_generator.question_generator import QuestionGenerator
-from haystack.document_stores.base import BaseDocumentStore
-from haystack.pipelines.base import Pipeline
 from haystack.nodes import PreProcessor, TextConverter
+from haystack.pipelines.base import Pipeline
+from haystack.schema import Document, EvaluationResult, MultiLabel
 
 
 logger = logging.getLogger(__name__)
@@ -84,9 +85,9 @@ class BaseStandardPipeline(ABC):
         This is for example helpful if you loaded a pipeline and then want to interact directly with the document store.
         Example:
         ```python
-        | from haystack.document_stores.base import BaseDocumentStore
-        | INDEXING_PIPELINE = Pipeline.load_from_yaml(Path(PIPELINE_YAML_PATH), pipeline_name=INDEXING_PIPELINE_NAME)
-        | res = INDEXING_PIPELINE.get_nodes_by_class(class_type=BaseDocumentStore)
+        from haystack.document_stores.base import BaseDocumentStore
+        INDEXING_PIPELINE = Pipeline.load_from_yaml(Path(PIPELINE_YAML_PATH), pipeline_name=INDEXING_PIPELINE_NAME)
+        res = INDEXING_PIPELINE.get_nodes_by_class(class_type=BaseDocumentStore)
         ```
         :return: List of components that are an instance of the requested class
         """
@@ -121,7 +122,6 @@ class BaseStandardPipeline(ABC):
         context_matching_boost_split_overlaps: bool = True,
         context_matching_threshold: float = 65.0,
     ) -> EvaluationResult:
-
         """
         Evaluates the pipeline by running the pipeline once per query in debug mode
         and putting together all data that is needed for evaluation, e.g. calculating metrics.
@@ -180,7 +180,6 @@ class BaseStandardPipeline(ABC):
         context_matching_boost_split_overlaps: bool = True,
         context_matching_threshold: float = 65.0,
     ) -> EvaluationResult:
-
         """
          Evaluates the pipeline by running the pipeline once per query in the debug mode
          and putting together all data that is needed for evaluation, for example, calculating metrics.
@@ -240,7 +239,7 @@ class BaseStandardPipeline(ABC):
             "document_id_or_answer",
         ] = "document_id_or_answer",
         answer_scope: Literal["any", "context", "document_id", "document_id_and_context"] = "any",
-        wrong_examples_fields: List[str] = ["answer", "context", "document_id"],
+        wrong_examples_fields: Optional[List[str]] = None,
         max_characters_per_field: int = 150,
     ):
         """
@@ -276,9 +275,11 @@ class BaseStandardPipeline(ABC):
             - 'document_id_and_context': The answer is only considered correct if its document ID and its context match as well.
             The default value is 'any'.
             In Question Answering, to enforce that the retrieved document is considered correct whenever the answer is correct, set `document_scope` to 'answer' or 'document_id_or_answer'.
-        :param wrong_examples_fields: A list of field names to include in the worst samples.
+        :param wrong_examples_fields: A list of field names to include in the worst samples. By default, "answer", "context", and "document_id" are used.
         :param max_characters_per_field: The maximum number of characters per wrong example to show (per field).
         """
+        if wrong_examples_fields is None:
+            wrong_examples_fields = ["answer", "context", "document_id"]
         if metrics_filter is None:
             metrics_filter = self.metrics_filter
         self.pipeline.print_eval_report(
@@ -398,17 +399,29 @@ class SearchSummarizationPipeline(BaseStandardPipeline):
     Pipeline that retrieves documents for a query and then summarizes those documents.
     """
 
-    def __init__(self, summarizer: BaseSummarizer, retriever: BaseRetriever, return_in_answer_format: bool = False):
+    def __init__(
+        self,
+        summarizer: BaseSummarizer,
+        retriever: BaseRetriever,
+        generate_single_summary: bool = False,
+        return_in_answer_format: bool = False,
+    ):
         """
         :param summarizer: Summarizer instance
         :param retriever: Retriever instance
+        :param generate_single_summary: Whether to generate a single summary for all documents or one summary per document.
         :param return_in_answer_format: Whether the results should be returned as documents (False) or in the answer
                                         format used in other QA pipelines (True). With the latter, you can use this
                                         pipeline as a "drop-in replacement" for other QA pipelines.
         """
         self.pipeline = Pipeline()
         self.pipeline.add_node(component=retriever, name="Retriever", inputs=["Query"])
-        self.pipeline.add_node(component=summarizer, name="Summarizer", inputs=["Retriever"])
+        if generate_single_summary is True:
+            document_merger = DocumentMerger()
+            self.pipeline.add_node(component=document_merger, name="Document Merger", inputs=["Retriever"])
+            self.pipeline.add_node(component=summarizer, name="Summarizer", inputs=["Document Merger"])
+        else:
+            self.pipeline.add_node(component=summarizer, name="Summarizer", inputs=["Retriever"])
         self.return_in_answer_format = return_in_answer_format
 
     def run(self, query: str, params: Optional[dict] = None, debug: Optional[bool] = None):
@@ -431,9 +444,9 @@ class SearchSummarizationPipeline(BaseStandardPipeline):
             for doc in docs:
                 cur_answer = {
                     "query": query,
-                    "answer": doc.content,
+                    "answer": doc.meta.pop("summary"),
                     "document_id": doc.id,
-                    "context": doc.meta.pop("context"),
+                    "context": doc.content,
                     "score": None,
                     "offset_start": None,
                     "offset_end": None,
@@ -469,9 +482,9 @@ class SearchSummarizationPipeline(BaseStandardPipeline):
                 for doc in cur_docs:
                     cur_answer = {
                         "query": query,
-                        "answer": doc.content,
+                        "answer": doc.meta.pop("summary"),
                         "document_id": doc.id,
-                        "context": doc.meta.pop("context"),
+                        "context": doc.content,
                         "score": None,
                         "offset_start": None,
                         "offset_end": None,
@@ -660,11 +673,7 @@ class MostSimilarDocumentsPipeline(BaseStandardPipeline):
         self.document_store = document_store
 
     def run(
-        self,
-        document_ids: List[str],
-        filters: Optional[Dict[str, Union[Dict, List, str, int, float, bool]]] = None,
-        top_k: int = 5,
-        index: Optional[str] = None,
+        self, document_ids: List[str], filters: Optional[FilterType] = None, top_k: int = 5, index: Optional[str] = None
     ):
         """
         :param document_ids: document ids
@@ -672,25 +681,19 @@ class MostSimilarDocumentsPipeline(BaseStandardPipeline):
         :param top_k: How many documents id to return against single document
         :param index: Optionally specify the name of index to query the document from. If None, the DocumentStore's default index (self.index) will be used.
         """
-        similar_documents: list = []
         self.document_store.return_embedding = True  # type: ignore
 
-        for document in self.document_store.get_documents_by_id(ids=document_ids, index=index):
-            similar_documents.append(
-                self.document_store.query_by_embedding(
-                    query_emb=document.embedding, filters=filters, return_embedding=False, top_k=top_k, index=index
-                )
-            )
+        documents = self.document_store.get_documents_by_id(ids=document_ids, index=index)
+        query_embs = [doc.embedding for doc in documents]
+        similar_documents = self.document_store.query_by_embedding_batch(
+            query_embs=query_embs, filters=filters, return_embedding=False, top_k=top_k, index=index  # type: ignore [arg-type]
+        )
 
         self.document_store.return_embedding = False  # type: ignore
         return similar_documents
 
     def run_batch(  # type: ignore
-        self,
-        document_ids: List[str],
-        filters: Optional[Dict[str, Union[Dict, List, str, int, float, bool]]] = None,
-        top_k: int = 5,
-        index: Optional[str] = None,
+        self, document_ids: List[str], filters: Optional[FilterType] = None, top_k: int = 5, index: Optional[str] = None
     ):
         """
         :param document_ids: document ids

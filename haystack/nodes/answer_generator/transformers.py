@@ -37,31 +37,31 @@ class RAGenerator(BaseGenerator):
 
     **Example**
 
-    ```python
-    |     query = "who got the first nobel prize in physics?"
-    |
-    |     # Retrieve related documents from retriever
-    |     retrieved_docs = retriever.retrieve(query=query)
-    |
-    |     # Now generate answer from query and retrieved documents
-    |     generator.predict(
-    |        query=query,
-    |        documents=retrieved_docs,
-    |        top_k=1
-    |     )
-    |
-    |     # Answer
-    |
-    |     {'query': 'who got the first nobel prize in physics',
-    |      'answers':
-    |          [{'query': 'who got the first nobel prize in physics',
-    |            'answer': ' albert einstein',
-    |            'meta': { 'doc_ids': [...],
-    |                      'doc_scores': [80.42758 ...],
-    |                      'doc_probabilities': [40.71379089355469, ...
-    |                      'content': ['Albert Einstein was a ...]
-    |                      'titles': ['"Albert Einstein"', ...]
-    |      }}]}
+     ```python
+     query = "who got the first nobel prize in physics?"
+
+     # Retrieve related documents from retriever
+     retrieved_docs = retriever.retrieve(query=query)
+
+     # Now generate answer from query and retrieved documents
+     generator.predict(
+        query=query,
+        documents=retrieved_docs,
+        top_k=1
+     )
+
+     # Answer
+
+     {'query': 'who got the first nobel prize in physics',
+      'answers':
+          [{'query': 'who got the first nobel prize in physics',
+            'answer': ' albert einstein',
+            'meta': { 'doc_ids': [...],
+                      'doc_scores': [80.42758 ...],
+                      'doc_probabilities': [40.71379089355469, ...
+                      'content': ['Albert Einstein was a ...]
+                      'titles': ['"Albert Einstein"', ...]
+      }}]}
     ```
     """
 
@@ -131,8 +131,9 @@ class RAGenerator(BaseGenerator):
         self.devices, _ = initialize_device_settings(devices=devices, use_cuda=use_gpu, multi_gpu=False)
         if len(self.devices) > 1:
             logger.warning(
-                f"Multiple devices are not supported in {self.__class__.__name__} inference, "
-                f"using the first device {self.devices[0]}."
+                "Multiple devices are not supported in %s inference, using the first device %s.",
+                self.__class__.__name__,
+                self.devices[0],
             )
 
         self.tokenizer = RagTokenizer.from_pretrained(model_name_or_path, use_auth_token=use_auth_token)
@@ -167,7 +168,6 @@ class RAGenerator(BaseGenerator):
     def _get_contextualized_inputs(
         self, texts: List[str], query: str, titles: Optional[List[str]] = None, return_tensors: str = "pt"
     ):
-
         titles_list = titles if self.embed_title and titles is not None else [""] * len(texts)
         prefix = self.prefix if self.prefix is not None else self.model.config.generator.prefix
 
@@ -189,7 +189,6 @@ class RAGenerator(BaseGenerator):
         )
 
     def _prepare_passage_embeddings(self, docs: List[Document], embeddings: numpy.ndarray) -> torch.Tensor:
-
         # If document missing embedding, then need embedding for all the documents
         is_embedding_required = embeddings is None or any(embedding is None for embedding in embeddings)
 
@@ -218,16 +217,16 @@ class RAGenerator(BaseGenerator):
         :return: Generated answers plus additional infos in a dict like this:
 
         ```python
-        |     {'query': 'who got the first nobel prize in physics',
-        |      'answers':
-        |          [{'query': 'who got the first nobel prize in physics',
-        |            'answer': ' albert einstein',
-        |            'meta': { 'doc_ids': [...],
-        |                      'doc_scores': [80.42758 ...],
-        |                      'doc_probabilities': [40.71379089355469, ...
-        |                      'content': ['Albert Einstein was a ...]
-        |                      'titles': ['"Albert Einstein"', ...]
-        |      }}]}
+        {'query': 'who got the first nobel prize in physics',
+         'answers':
+             [{'query': 'who got the first nobel prize in physics',
+               'answer': ' albert einstein',
+               'meta': { 'doc_ids': [...],
+                         'doc_scores': [80.42758 ...],
+                         'doc_probabilities': [40.71379089355469, ...
+                         'content': ['Albert Einstein was a ...]
+                         'titles': ['"Albert Einstein"', ...]
+         }}]}
         ```
         """
         torch.set_grad_enabled(False)
@@ -308,31 +307,31 @@ class Seq2SeqGenerator(BaseGenerator):
 
     **Example**
 
-    ```python
-    |     query = "Why is Dothraki language important?"
-    |
-    |     # Retrieve related documents from retriever
-    |     retrieved_docs = retriever.retrieve(query=query)
-    |
-    |     # Now generate answer from query and retrieved documents
-    |     generator.predict(
-    |        query=query,
-    |        documents=retrieved_docs,
-    |        top_k=1
-    |     )
-    |
-    |     # Answer
-    |
-    |     {'query': 'who got the first nobel prize in physics',
-    |      'answers':
-    |          [{'query': 'who got the first nobel prize in physics',
-    |            'answer': ' albert einstein',
-    |            'meta': { 'doc_ids': [...],
-    |                      'doc_scores': [80.42758 ...],
-    |                      'doc_probabilities': [40.71379089355469, ...
-    |                      'content': ['Albert Einstein was a ...]
-    |                      'titles': ['"Albert Einstein"', ...]
-    |      }}]}
+     ```python
+     query = "Why is Dothraki language important?"
+
+     # Retrieve related documents from retriever
+     retrieved_docs = retriever.retrieve(query=query)
+
+     # Now generate answer from query and retrieved documents
+     generator.predict(
+        query=query,
+        documents=retrieved_docs,
+        top_k=1
+     )
+
+     # Answer
+
+     {'query': 'who got the first nobel prize in physics',
+      'answers':
+          [{'query': 'who got the first nobel prize in physics',
+            'answer': ' albert einstein',
+            'meta': { 'doc_ids': [...],
+                      'doc_scores': [80.42758 ...],
+                      'doc_probabilities': [40.71379089355469, ...
+                      'content': ['Albert Einstein was a ...]
+                      'titles': ['"Albert Einstein"', ...]
+      }}]}
     ```
     """
 
@@ -389,8 +388,9 @@ class Seq2SeqGenerator(BaseGenerator):
         self.devices, _ = initialize_device_settings(devices=devices, use_cuda=use_gpu, multi_gpu=False)
         if len(self.devices) > 1:
             logger.warning(
-                f"Multiple devices are not supported in {self.__class__.__name__} inference, "
-                f"using the first device {self.devices[0]}."
+                "Multiple devices are not supported in %s inference, using the first device %s.",
+                self.__class__.__name__,
+                self.devices[0],
             )
 
         Seq2SeqGenerator._register_converters(model_name_or_path, input_converter)
@@ -412,7 +412,12 @@ class Seq2SeqGenerator(BaseGenerator):
             cls._model_input_converters[model_name_or_path] = custom_converter
 
     @classmethod
-    def _get_converter(cls, model_name_or_path: str):
+    def _get_converter(cls, model_name_or_path: str) -> Optional[Callable]:
+        # using dictionary key based on model_name_or_path endswith
+        if model_name_or_path.endswith("bart_lfqa"):
+            model_name_or_path = "vblagoje/bart_lfqa"
+        elif model_name_or_path.endswith("bart_eli5"):
+            model_name_or_path = "yjernite/bart_eli5"
         return cls._model_input_converters.get(model_name_or_path)
 
     def predict(self, query: str, documents: List[Document], top_k: Optional[int] = None) -> Dict:
@@ -436,8 +441,8 @@ class Seq2SeqGenerator(BaseGenerator):
             top_k = self.num_beams
             logger.warning("top_k value should not be greater than num_beams, hence setting it to %s", top_k)
 
-        converter: Callable = Seq2SeqGenerator._get_converter(self.model_name_or_path)
-        if not converter:
+        converter: Optional[Callable] = Seq2SeqGenerator._get_converter(self.model_name_or_path)
+        if converter is None:
             raise KeyError(
                 f"Seq2SeqGenerator doesn't have input converter registered for {self.model_name_or_path}. "
                 f"Provide custom converter for {self.model_name_or_path} in Seq2SeqGenerator initialization"
@@ -447,7 +452,7 @@ class Seq2SeqGenerator(BaseGenerator):
             query_and_docs_encoded: BatchEncoding = converter(
                 tokenizer=self.tokenizer, query=query, documents=documents, top_k=top_k
             ).to(self.devices[0])
-        except TypeError as e:
+        except TypeError:
             raise TypeError(
                 f"Language model input converter {converter} provided in Seq2SeqGenerator.__init__() does "
                 f"not have a valid __call__ method signature. The required Callable __call__ signature is: "

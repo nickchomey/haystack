@@ -20,7 +20,7 @@ class Text2SparqlRetriever(BaseGraphRetriever):
     def __init__(
         self,
         knowledge_graph: BaseKnowledgeGraph,
-        model_name_or_path: str = None,
+        model_name_or_path: Optional[str] = None,
         model_version: Optional[str] = None,
         top_k: int = 1,
         use_auth_token: Optional[Union[str, bool]] = None,
@@ -113,7 +113,7 @@ class Text2SparqlRetriever(BaseGraphRetriever):
                 else:
                     result = []
                     for x in response:
-                        for k, v in x.items():
+                        for v in x.values():
                             result.append(v["value"])
             elif isinstance(response, bool):
                 result = str(response)

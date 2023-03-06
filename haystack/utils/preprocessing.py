@@ -43,8 +43,10 @@ def convert_files_to_docs(
             suffix2paths[file_suffix].append(path)
         elif not path.is_dir():
             logger.warning(
-                "Skipped file {0} as type {1} is not supported here. "
-                "See haystack.file_converter for support of more file types".format(path, file_suffix)
+                "Skipped file %s as type %s is not supported here. "
+                "See haystack.file_converter for support of more file types",
+                path,
+                file_suffix,
             )
 
     # No need to initialize converter if file type not present
@@ -59,7 +61,7 @@ def convert_files_to_docs(
     documents = []
     for suffix, paths in suffix2paths.items():
         for path in paths:
-            logger.info("Converting {}".format(path))
+            logger.info("Converting %s", path)
             # PDFToTextConverter, TextConverter, and DocxToTextConverter return a list containing a single Document
             document = suffix2converter[suffix].convert(
                 file_path=path, meta=None, encoding=encoding, id_hash_keys=id_hash_keys
